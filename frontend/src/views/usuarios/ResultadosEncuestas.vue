@@ -3,33 +3,29 @@
         <router-link :to="`/comunidad-encuestas/${institucionId}`" class="breadcrumb">
             ← Volver a levantamiento de encuestas
         </router-link>
+
         <h1>Resultados de encuestas</h1>
 
         <transition name="fade">
-            <section v-if="resultados.estudiantes && resultados.estudiantes.length">
+            <p v-if="loading" class="cargando">⏳ Cargando resultados...</p>
+        </transition>
+
+        <transition name="fade">
+            <section v-if="!loading && resultados.estudiantes.length">
                 <h2>📘 Estudiantes</h2>
                 <PreguntaResultado v-for="(pregunta, id) in resultados.estudiantes" :key="id" :pregunta="pregunta" />
             </section>
         </transition>
 
         <transition name="fade">
-            <section v-if="resultados.personal && resultados.personal.length">
+            <section v-if="!loading && resultados.personal.length">
                 <h2>📙 Personal</h2>
                 <PreguntaResultado v-for="(pregunta, id) in resultados.personal" :key="id" :pregunta="pregunta" />
             </section>
         </transition>
 
         <transition name="fade">
-            <p v-if="!resultados.personal || !resultados.personal.length">
-                ⚠️ No hay resultados para el personal.
-            </p>
-        </transition>
-
-        <transition name="fade">
-            <p v-if="
-                (!resultados.estudiantes || !resultados.estudiantes.length) &&
-                (!resultados.personal || !resultados.personal.length)
-            ">
+            <p v-if="!loading && (!resultados.personal.length && !resultados.estudiantes.length)">
                 ❌ No hay resultados disponibles para esta institución.
             </p>
         </transition>
@@ -47,10 +43,11 @@ const resultados = ref({
     personal: []
 })
 
+const loading = ref(true) // Nuevo estado de carga
+
 const route = useRoute()
 const institucionId = route.params.codigo
 
-// 🔧 Función para transformar y ordenar preguntas
 const transformarYOrdenarPreguntas = (preguntasObj) => {
     return Object.entries(preguntasObj)
         .sort(([idA], [idB]) => {
@@ -61,13 +58,11 @@ const transformarYOrdenarPreguntas = (preguntasObj) => {
         .map(([id, pregunta]) => ({ id, ...pregunta }))
 }
 
-// 🔹 Cargar estudiantes
 const fetchEstudiantes = async () => {
     try {
         const res = await axios.get('https://obtenerresultadosencuesta-34rbmbolyq-uc.a.run.app', {
             params: { encuesta_id: 'estudiantes', institucion_id: institucionId }
         })
-
         resultados.value.estudiantes = res.data.preguntas
             ? transformarYOrdenarPreguntas(res.data.preguntas)
             : []
@@ -77,13 +72,11 @@ const fetchEstudiantes = async () => {
     }
 }
 
-// 🔹 Cargar personal
 const fetchPersonal = async () => {
     try {
         const res = await axios.get('https://obtenerresultadosencuesta-34rbmbolyq-uc.a.run.app', {
             params: { encuesta_id: 'personal', institucion_id: institucionId }
         })
-
         resultados.value.personal = res.data.preguntas
             ? transformarYOrdenarPreguntas(res.data.preguntas)
             : []
@@ -93,14 +86,14 @@ const fetchPersonal = async () => {
     }
 }
 
-onMounted(() => {
-    fetchEstudiantes()
-    fetchPersonal()
+onMounted(async () => {
+    await Promise.all([
+        fetchEstudiantes(),
+        fetchPersonal()
+    ])
+    loading.value = false // Cuando ambas respuestas llegan, loading = false
 })
 </script>
-
-
-
 
 <style scoped>
 .resultados-wrapper {
@@ -132,12 +125,17 @@ h2 {
     text-align: left;
     width: 100%;
     transition: color 0.2s ease;
-
 }
 
 .breadcrumb:hover {
     color: #005099;
     text-decoration: underline;
+}
 
+.cargando {
+    font-size: 16px;
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 20px;
 }
 </style>

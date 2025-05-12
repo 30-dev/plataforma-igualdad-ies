@@ -9,6 +9,13 @@ const agrupadas = props.subdimensiones.reduce((acc, curr) => {
     acc[curr.dimension].push(curr);
     return acc;
 }, {});
+
+// Crear una lista ordenada de claves tipo "dimension_1", "dimension_2", etc.
+const dimensionesOrdenadas = Object.keys(agrupadas).sort((a, b) => {
+    const numA = parseInt(a.split("_")[1]);
+    const numB = parseInt(b.split("_")[1]);
+    return numA - numB;
+});
 </script>
 
 <template>
@@ -24,11 +31,12 @@ const agrupadas = props.subdimensiones.reduce((acc, curr) => {
             </tr>
         </thead>
         <tbody>
-            <template v-for="(subdims, dimensionKey) in agrupadas" :key="dimensionKey">
-                <tr v-for="(item, index) in subdims" :key="item.subdimension">
-                    <!-- Solo mostrar la celda de dimensión en la primera fila del bloque -->
-                    <td v-if="index === 0" :rowspan="subdims.length">
-                        <span style="font-weight: bold; color: #4A96D6;">Dimensión</span>
+            <template v-for="dimensionKey in dimensionesOrdenadas" :key="dimensionKey">
+                <tr v-for="(item, index) in agrupadas[dimensionKey]" :key="item.subdimension">
+                    <td v-if="index === 0" :rowspan="agrupadas[dimensionKey].length">
+                        <span style="font-weight: bold; color: #4A96D6;">
+                            {{ dimensionKey.split("_")[1] }}
+                        </span>
                     </td>
                     <td>{{ item.subdimension }}</td>
                     <td>{{ item.total }}</td>
@@ -40,3 +48,13 @@ const agrupadas = props.subdimensiones.reduce((acc, curr) => {
         </tbody>
     </table>
 </template>
+
+<style scoped>
+table {
+    text-align: left;
+}
+
+table th {
+    text-align: center;
+}
+</style>

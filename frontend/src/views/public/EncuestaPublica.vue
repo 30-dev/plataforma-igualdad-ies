@@ -8,8 +8,25 @@
                 Universidades e Instituciones<br />
                 de Educación Superior
             </h1>
-            <h2>Encuesta para {{ tipo === 'personal' ? 'personal institucional' : 'estudiantes' }}</h2>
+            <h2 class="dirigido-parrafo">Encuesta para {{ tipo === 'personal' ? 'personal institucional' : 'estudiantes'
+                }}</h2>
             <span class="descripcion">Percepción de igualdad de género</span>
+
+            <div class="aviso-encuesta">
+                <strong>
+                    Aviso importante antes de comenzar
+                </strong>
+
+                <p>
+                    Todas las respuestas que proporciones en esta encuesta son completamente anónimas y confidenciales.
+                    La información recopilada se utilizará únicamente con fines estadísticos y de análisis general.
+                    Tu participación es muy valiosa y nos ayudará a obtener una visión más precisa y útil.
+                </p>
+
+
+                <span>¡Gracias por tu tiempo y sinceridad!</span>
+
+            </div>
 
             <form @submit.prevent="enviarRespuestas">
                 <div class="preguntas">
@@ -169,12 +186,35 @@ h2 {
     outline-offset: 12px;
 }
 
+.dirigido-parrafo {
+    margin: 12px 0 0px 0;
+}
+
 .descripcion {
     display: block;
     font-size: 17px;
     text-align: left;
-    margin-bottom: 12px;
-    padding: 8px 0px;
+    /* padding: 8px 0px; */
+}
+
+
+
+.aviso-encuesta {
+    text-align: left;
+    margin: 0 0 24px 0;
+    background-color: #fff;
+    outline: 1px solid #d2d2d2;
+    padding: 16px;
+    margin: 12px 0 24px 0;
+}
+
+
+.aviso-encuesta strong {
+    color: #007bff
+}
+
+.aviso-encuesta p {
+    margin: 6px 0;
 }
 
 .estado-msg {

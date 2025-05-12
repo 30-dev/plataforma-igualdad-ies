@@ -1,9 +1,10 @@
 <template>
     <div class="pregunta">
-        <h3 class="titulo">{{ pregunta.texto }}</h3>
+
 
         <!-- 📊 Si es tipo radio -->
         <div v-if="pregunta.tipo === 'radio' && pregunta.opciones">
+            <h3 class="titulo">{{ pregunta.texto }}</h3>
             <div v-for="(cantidad, opcion) in pregunta.opciones" :key="opcion" class="barra">
                 <span>{{ opcion }} ({{ cantidad }})</span>
                 <div class="barra-container">
@@ -12,10 +13,23 @@
             </div>
         </div>
 
-        <div v-else-if="pregunta.tipo === 'texto' || pregunta.tipo === 'email' || pregunta.tipo === 'numero'">
+        <!-- 🧮 Si es tipo número (mostrar promedio) -->
+        <div v-else-if="pregunta.tipo === 'numero' && pregunta.respuestas">
+            <h3 class="titulo">{{ pregunta.texto }}</h3>
+            <p class="promedio">Promedio: {{ calcularPromedio() }}</p>
+        </div>
+
+        <!-- 📋 Si es tipo texto (listar) -->
+        <div v-else-if="pregunta.tipo === 'texto' && pregunta.respuestas">
+            <h3 class="titulo">{{ pregunta.texto }}</h3>
             <span v-for="(respuesta, index) in pregunta.respuestas" :key="index" class="respuesta-item">
                 {{ respuesta }}<span v-if="index < pregunta.respuestas.length - 1">, </span>
             </span>
+        </div>
+
+        <!-- 🚫 Ignorar tipo email -->
+        <div v-else-if="pregunta.tipo === 'email'">
+            <!-- No se muestra nada para email -->
         </div>
 
         <!-- ❗ Tipo no manejado -->
@@ -31,6 +45,14 @@ const props = defineProps({
 const getPorcentaje = (cantidad) => {
     const total = Object.values(props.pregunta.opciones || {}).reduce((sum, val) => sum + val, 0)
     return total > 0 ? Math.round((cantidad / total) * 100) : 0
+}
+
+const calcularPromedio = () => {
+    const respuestasNumericas = (props.pregunta.respuestas || []).map(r => Number(r)).filter(n => !isNaN(n));
+    if (respuestasNumericas.length === 0) return 'N/A';
+    const suma = respuestasNumericas.reduce((sum, val) => sum + val, 0);
+    const promedio = suma / respuestasNumericas.length;
+    return promedio.toFixed(1); // Un decimal, ej: 23.4
 }
 </script>
 
@@ -65,6 +87,13 @@ const getPorcentaje = (cantidad) => {
     background-color: #007bff;
     height: 100%;
     border-radius: 4px;
+}
+
+.promedio {
+    font-size: 14px;
+    font-weight: 500;
+    color: #007bff;
+    margin-top: 8px;
 }
 
 ul {

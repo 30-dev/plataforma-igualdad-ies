@@ -17,7 +17,7 @@ export const obtenerPreguntasDimension = https.onRequest(async (req, res) => {
     return res.status(405).json({ error: "Método no permitido" });
   }
 
-  const { id } = req.query;
+  const { id, resumen } = req.query;
 
   if (!id) {
     return res.status(400).json({
@@ -43,6 +43,22 @@ export const obtenerPreguntasDimension = https.onRequest(async (req, res) => {
 
     const data = docSnap.data();
 
+    // 🔍 Si el parámetro resumen está presente y es true, devolver solo info general
+    if (resumen === "true") {
+      return res.status(200).json({
+        mensaje: "Resumen de dimensión obtenido correctamente.",
+        dimension: {
+          id: docSnap.id,
+          nombre: data.nombre ?? null,
+          descripcion: data.descripcion ?? null,
+          icono: data.icono ?? null,
+          objetivo: data.objetivo ?? null,
+          orden: data.orden ?? null,
+        },
+      });
+    }
+
+    // Validar preguntas solo si no se pidió resumen
     if (!data.preguntas || !Array.isArray(data.preguntas)) {
       return res.status(400).json({
         error: {

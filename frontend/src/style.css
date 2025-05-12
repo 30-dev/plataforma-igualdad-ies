@@ -36,6 +36,8 @@ a:hover {
 body {
   margin: 0;
   font-family: var(--font-stack);
+  background-color: #ffffff !important;
+  color: var(--primary-color) !important;
   display: flex;
   place-items: center;
   min-width: 320px;

@@ -22,9 +22,25 @@
 
 
                 <div class="card" v-for="card in cards" :key="card.titulo">
-                    <h2>{{ card.titulo }}</h2>
-                    <p>{{ card.descripcion }}</p>
-                    <button class="card-button" @click="irA(card.ruta)">Entrar</button>
+
+                    <header class="card-header">
+                        <span class="headline">{{ card.headline }}</span>
+                        <h2>{{ card.titulo }}</h2>
+                    </header>
+
+                    <div class="card-description">
+                        <p>{{ card.descripcion }}</p>
+                    </div>
+                    <button class="card-button" @click="irA(card.ruta)">
+                        Entrar
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24">
+                            <g fill="none">
+                                <path fill="#fff" d="M4 11.25a.75.75 0 0 0 0 1.5zm0 1.5h16v-1.5H4z" opacity="0.5" />
+                                <path stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="m14 6l6 6l-6 6" />
+                            </g>
+                        </svg>
+                    </button>
                 </div>
             </div>
         </main>
@@ -45,23 +61,28 @@ const institucionData = ref(null)
 
 const cards = computed(() => [
     {
-        titulo: '9 Dimensiones',
-        descripcion: 'Accede a los apartados del diagnóstico institucional.',
+        headline: 'Autodiagnóstico',
+        titulo: 'de 9 Dimensiones',
+        descripcion: 'Explora y responde los apartados del diagnóstico de igualdad de género en tu institución.',
         ruta: `/dimensiones/${codigoInstitucion.value}`
     },
     {
-        titulo: 'Resultados 9 Dimensiones',
-        descripcion: 'Revisa los resultados.',
+
+        headline: 'Resultados',
+        titulo: 'Autodiagnóstico de 9 Dimensiones',
+        descripcion: 'Consulta el nivel de cumplimiento y áreas de oportunidad en las 9 dimensiones evaluadas.',
         ruta: `/resultados-dimensiones/${codigoInstitucion.value}`
     },
     {
-        titulo: 'Levantamiento de Encuestas',
-        descripcion: 'Participa en los instrumentos de diagnóstico.',
+        headline: 'Autodiagnóstico',
+        titulo: 'encuestas a la comunidad escolar',
+        descripcion: 'Consulta los enlaces para que la comunidad participe y revisa los resultados obtenidos en las encuestas sobre igualdad de género.',
         ruta: `/comunidad-encuestas/${codigoInstitucion.value}`
     },
     {
-        titulo: 'Autodiagnóstico',
-        descripcion: 'Accede a los resultados del autodiagnóstico participativo.',
+        headline: 'Autodiagnóstico',
+        titulo: 'Participativo',
+        descripcion: 'Si ya implmentaste el proceso participativo con la comunidad educativa, responde esta sección.',
         ruta: `/autodiagnostico/${codigoInstitucion.value}`
     }
 ])
@@ -163,18 +184,62 @@ const cerrarSesion = () => {
 .card {
     padding: 16px;
     border: 1px solid #ccc;
-    border-radius: 8px;
-    background-color: #f9f9f9;
+    border-radius: 4spx;
+    background-color: #fff !important;
     text-align: center;
 }
 
-.card h2 {
-    margin-bottom: 8px;
+.card-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 0 auto;
+    width: 100%;
+    min-height: 70px;
+}
+
+
+
+
+.headline {
+    font-size: 16px;
+    line-height: 18px;
+    font-weight: 700;
+    color: #213547;
+}
+
+.card-header h2 {
+    margin: 0 0 4px 0;
+    line-height: 19px;
     font-size: 18px;
     color: #213547;
 }
 
+
+.card-description {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 125px;
+    max-height: 125px;
+    width: 100%;
+
+}
+
+@media screen and (min-width: 425px) {
+    .card-description {
+        min-height: 125px;
+        max-height: 125px;
+
+    }
+
+}
+
 .card p {
+    margin: 4px auto 8px auto;
     color: #555;
     font-size: 14px;
 }
