@@ -11,7 +11,8 @@
                 participativo
             </h1>
             <p class="descripcion">
-                Si la institución ya desarrolló la herramienta de design thinking para su proceso de transversalización
+                Si la institución ya desarrolló la herramienta de Autodiagnóstico Participativo para su proceso de
+                transversalización
                 de la perspectiva de género, entra a esta sección para que completes las preguntas.
             </p>
 

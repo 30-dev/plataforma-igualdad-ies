@@ -1,6 +1,6 @@
 <template>
     <div class="input-group">
-        <input :id="pregunta.id" type="number" v-model="model" @blur="validar" :class="{ invalido: error }" />
+        <input :id="pregunta.id" type="date" v-model="model" @blur="validar" :max="hoy" :class="{ invalido: error }" />
         <p v-if="error" class="error-msg">{{ error }}</p>
     </div>
 </template>
@@ -9,7 +9,7 @@
 import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
-    modelValue: [Number, String],
+    modelValue: String,
     pregunta: Object
 })
 
@@ -22,17 +22,26 @@ const model = computed({
 
 const error = ref('')
 
+// Calculamos la fecha actual en formato YYYY-MM-DD
+const hoy = new Date().toISOString().split('T')[0]
+
 const validar = () => {
-    const val = Number(model.value)
-    if (isNaN(val)) {
-        error.value = 'Debe ser un número válido'
-    } else if (val < 0) {
-        error.value = 'No puede ser un número negativo'
+    if (!model.value) {
+        error.value = 'La fecha es obligatoria.'
+        return
+    }
+
+    const fechaIngresada = new Date(model.value)
+    const fechaHoy = new Date(hoy)
+
+    if (isNaN(fechaIngresada)) {
+        error.value = 'Debe ingresar una fecha válida.'
+    } else if (fechaIngresada > fechaHoy) {
+        error.value = 'No se puede ingresar una fecha futura.'
     } else {
         error.value = ''
     }
-}// También puedes validar en vivo si lo prefieres:
-
+}
 
 watch(() => model.value, validar)
 </script>

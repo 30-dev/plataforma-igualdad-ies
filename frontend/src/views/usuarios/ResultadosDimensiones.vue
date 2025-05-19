@@ -7,6 +7,7 @@ import TablaSubdimensiones from "../../components/resultado/TablaSubdimensiones.
 import TablaResumenGlobal from "../../components/resultado/TablaResumenGlobal.vue";
 import BarrasPorDimension from "../../components/resultado/BarrasPorDimension.vue";
 import ListaDimensiones from "../../components/resultado/ListaDimensiones.vue";
+import ComposicionGenero from "../../components/resultado/ComposicionGenero.vue";
 
 const datos = ref(null);
 const cargando = ref(true);
@@ -74,6 +75,11 @@ const dimensionesConPendientes = computed(() => {
         })
         .sort((a, b) => a.numero - b.numero);
 });
+
+const composicionGenero = computed(() => {
+    const dim4 = datos.value?.reporte?.find(d => d.id === 'dimension_4');
+    return dim4?.composicion_genero || {};
+});
 </script>
 
 
@@ -135,6 +141,12 @@ const dimensionesConPendientes = computed(() => {
 
                 <h3>Porcentaje por dimensión</h3>
                 <ListaDimensiones :dimensiones="dimensionesConPendientes" />
+
+                <ComposicionGenero :datos="datos.global.composicionGenero" />
+
+
+                <ComposicionGenero :datos="composicionGenero" />
+
             </div>
             <!-- <div style="display: flex; flex-wrap: wrap; gap: 32px;">
                 <GaugeChart v-for="(item, i) in datos.global.porcentajesPorDimension" :key="i"

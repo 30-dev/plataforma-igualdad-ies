@@ -84,9 +84,19 @@ onMounted(() => {
 
 <template>
     <div style="margin-bottom: 32px; text-align: center">
-        <h3 style="font-family: 'Poppins'; font-weight: 600; margin-bottom: 8px">
+        <h3>
             {{ titulo }}
         </h3>
         <VChart :option="gaugeOptions" style="width: 100%; height: 300px" />
     </div>
 </template>
+
+
+<style scoped>
+h3 {
+    font-size: 16px;
+    font-family: var(--font-stack), sans-serif;
+    color: #333;
+    margin-bottom: 8px;
+}
+</style>

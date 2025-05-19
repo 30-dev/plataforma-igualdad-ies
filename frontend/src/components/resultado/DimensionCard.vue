@@ -115,7 +115,7 @@ const pendientesAgrupados = computed(() => {
 .titulo-oportunidad {
     margin: 16px auto 0;
     font-size: 16px;
-    color: #4a96d6;
+    color: #333;
     text-align: left;
 }
 

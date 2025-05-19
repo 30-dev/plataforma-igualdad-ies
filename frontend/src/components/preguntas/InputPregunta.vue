@@ -5,7 +5,8 @@
             <span class="texto-pregunta">{{ pregunta.pregunta }}</span>
         </label>
 
-        <component :is="componente" v-model="respuesta" :pregunta="pregunta" :esDimension="esDimension" />
+        <component :is="componente" :modelValue="valorSeguro" @update:modelValue="emit('update:modelValue', $event)"
+            :pregunta="pregunta" :esDimension="esDimension" />
     </div>
 </template>
 
@@ -15,15 +16,28 @@ import InputTexto from './InputTexto.vue'
 import InputNumero from './InputNumero.vue'
 import InputRadio from './InputRadio.vue'
 import InputEmail from './InputEmail.vue'
+// import InputMatriz from './InputMatriz.vue'
+import InputTablaSalarial from './InputTablaSalarial.vue'
+import InputTablaAtenciones from './InputTablaAtenciones.vue'
+import InputTablaQuejas from './InputTablaQuejas.vue'
+import InputFecha from './InputFecha.vue'
+import InputComposicionSencilla from './InputComposicionSencilla.vue'
+import InputComposicionMultiple from './InputComposicionMultiple.vue'
+
 
 const props = defineProps({
     pregunta: Object,
-    modelValue: [String, Number, Boolean],
+    modelValue: {
+        type: [String, Number, Boolean, Array, Object],
+        default: ''
+    },
     esDimension: {
         type: Boolean,
         default: false
     }
 })
+
+
 
 const emit = defineEmits(['update:modelValue'])
 
@@ -37,11 +51,26 @@ const componentes = {
     numero: InputNumero,
     radio: InputRadio,
     email: InputEmail,
+    // matriz: InputMatriz,
+    tabla_salarial: InputTablaSalarial,
+    tabla_quejas_genero: InputTablaQuejas,
+    tabla_atenciones_mujeres: InputTablaAtenciones,
+    fecha: InputFecha,
+    composicion_sencilla: InputComposicionSencilla,
+    composicion_multiple: InputComposicionMultiple,
 }
 
 const componente = computed(() => {
     return componentes[props.pregunta.tipoRespuesta] || componentes[props.pregunta.tipo] || componentes[props.pregunta.tipo_respuesta]
 })
+
+// Valor seguro para evitar errores cuando modelValue es string pero debería ser array
+const valorSeguro = computed(() => {
+    if (props.pregunta.tipo_respuesta === 'tabla') {
+        return Array.isArray(props.modelValue) ? props.modelValue : [];
+    }
+    return props.modelValue;
+});
 </script>
 
 <style scoped>

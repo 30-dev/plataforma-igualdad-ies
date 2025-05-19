@@ -33,8 +33,8 @@ const dimensionesOrdenadas = Object.keys(agrupadas).sort((a, b) => {
         <tbody>
             <template v-for="dimensionKey in dimensionesOrdenadas" :key="dimensionKey">
                 <tr v-for="(item, index) in agrupadas[dimensionKey]" :key="item.subdimension">
-                    <td v-if="index === 0" :rowspan="agrupadas[dimensionKey].length">
-                        <span style="font-weight: bold; color: #4A96D6;">
+                    <td v-if="index === 0" :rowspan="agrupadas[dimensionKey].length" style="text-align: center;">
+                        <span style="font-weight: bold;">
                             {{ dimensionKey.split("_")[1] }}
                         </span>
                     </td>

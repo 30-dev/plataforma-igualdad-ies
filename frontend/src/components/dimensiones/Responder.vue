@@ -10,6 +10,15 @@
                 <InputPregunta :pregunta="pregunta" v-model="respuestas[pregunta.id]" :esDimension="true" />
             </div>
 
+            <!-- Sección especial para composición de género (solo en dimension_4) -->
+            <div v-if="id === 'dimension_4' && composicionGenero.length">
+                <h2 class="subtitulo">Composición por sexo</h2>
+                <div v-for="pregunta in composicionGenero" :key="pregunta.id" class="pregunta-wrapper">
+                    <InputPregunta :pregunta="pregunta" v-model="composicionRespuestas[pregunta.id]"
+                        :esDimension="true" />
+                </div>
+            </div>
+
             <div class="acciones">
                 <button type="submit" class="boton-enviar">Enviar</button>
             </div>
@@ -50,6 +59,10 @@ const modalVisible = ref(false)
 const modalStatus = ref(null)
 const modalClosable = ref(false)
 
+// Composición de género
+const composicionGenero = ref([])
+const composicionRespuestas = ref({})
+
 onMounted(async () => {
     try {
         const { data } = await axios.get(
@@ -59,16 +72,44 @@ onMounted(async () => {
         dimension.value = data.dimension
         preguntas.value = dimension.value.preguntas
 
+        // Inicializar respuestas normales
         preguntas.value.forEach((p) => {
             respuestas.value[p.id] = ''
         })
 
+        // Inicializar preguntas de composición de género (solo en dimension_4)
+        if (id === 'dimension_4' && Array.isArray(dimension.value.composicion_genero)) {
+            composicionGenero.value = dimension.value.composicion_genero
+
+            composicionGenero.value.forEach((p) => {
+                if (p.tipo_respuesta === 'composicion_multiple') {
+                    // Inicializar con una fila vacía
+                    composicionRespuestas.value[p.id] = [{
+                        descripcion: '',
+                        ...Object.fromEntries(p.columnas.map(col => [col.id, 0]))
+                    }]
+                } else {
+                    // composicion_sencilla → objeto con claves de fila
+                    const filaRes = {}
+                    p.filas.forEach(f => {
+                        filaRes[f.id] = { hombres: 0, mujeres: 0 }
+                    })
+                    composicionRespuestas.value[p.id] = filaRes
+                }
+            })
+        }
+
         loading.value = false
+
+        // 🔍 Debug visual opcional
+        console.log('✅ composicionRespuestas inicializada:', JSON.stringify(composicionRespuestas.value, null, 2))
     } catch (e) {
         console.error('❌ Error cargando la dimensión:', e)
         loading.value = false
     }
 })
+
+
 
 const enviar = async () => {
     modalVisible.value = true
@@ -76,13 +117,23 @@ const enviar = async () => {
     modalClosable.value = false
 
     try {
+        // 🔗 Asegurarse que se incluyan las preguntas de composición en el payload
+        if (id === 'dimension_4') {
+            preguntas.value = [...preguntas.value, ...composicionGenero.value]
+        }
+
         const payload = {
             institucion_id: codigo,
             dimension_id: id,
             usuario_id: JSON.parse(localStorage.getItem('usuario'))?.id || 'ANONIMO',
             respuestas: respuestas.value,
             preguntas: preguntas.value,
+            composicion_genero: id === 'dimension_4' ? composicionRespuestas.value : undefined,
+            composicion_genero_preguntas: id === 'dimension_4' ? composicionGenero.value : undefined // 🆕
         }
+
+        console.log("📤 Payload:", JSON.stringify(payload, null, 2))
+
 
         const { data } = await axios.post(
             'https://guardardimension-34rbmbolyq-uc.a.run.app',
@@ -92,15 +143,16 @@ const enviar = async () => {
         modalStatus.value = 'success'
         modalClosable.value = true
 
-        setTimeout(() => {
-            router.push(`/dimensiones/${codigo}`)
-        }, 2000)
+        // setTimeout(() => {
+        //     router.push(`/dimensiones/${codigo}`)
+        // }, 2000)
     } catch (e) {
         console.error('❌ Error al enviar respuestas:', e)
         modalStatus.value = 'error'
         modalClosable.value = true
     }
 }
+
 </script>
 
 <style scoped>

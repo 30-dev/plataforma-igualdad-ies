@@ -43,7 +43,6 @@ export const obtenerPreguntasDimension = https.onRequest(async (req, res) => {
 
     const data = docSnap.data();
 
-    // 🔍 Si el parámetro resumen está presente y es true, devolver solo info general
     if (resumen === "true") {
       return res.status(200).json({
         mensaje: "Resumen de dimensión obtenido correctamente.",
@@ -58,7 +57,6 @@ export const obtenerPreguntasDimension = https.onRequest(async (req, res) => {
       });
     }
 
-    // Validar preguntas solo si no se pidió resumen
     if (!data.preguntas || !Array.isArray(data.preguntas)) {
       return res.status(400).json({
         error: {
@@ -68,17 +66,24 @@ export const obtenerPreguntasDimension = https.onRequest(async (req, res) => {
       });
     }
 
+    // ✅ Si es dimension_4 y existe composicion_genero, agregarlo al resultado
+    const responseData = {
+      id: docSnap.id,
+      nombre: data.nombre ?? null,
+      descripcion: data.descripcion ?? null,
+      icono: data.icono ?? null,
+      objetivo: data.objetivo ?? null,
+      orden: data.orden ?? null,
+      preguntas: data.preguntas,
+    };
+
+    if (id === "dimension_4" && Array.isArray(data.composicion_genero)) {
+      responseData["composicion_genero"] = data.composicion_genero;
+    }
+
     return res.status(200).json({
       mensaje: "Dimensión obtenida correctamente.",
-      dimension: {
-        id: docSnap.id,
-        nombre: data.nombre ?? null,
-        descripcion: data.descripcion ?? null,
-        icono: data.icono ?? null,
-        objetivo: data.objetivo ?? null,
-        orden: data.orden ?? null,
-        preguntas: data.preguntas,
-      },
+      dimension: responseData,
     });
   } catch (error) {
     console.error("Error al obtener preguntas:", error);
@@ -92,101 +97,168 @@ export const obtenerPreguntasDimension = https.onRequest(async (req, res) => {
 });
 
 export const guardarDimension = https.onRequest(async (req, res) => {
-  setCORSHeaders(res, "GET");
+  setCORSHeaders(res, "POST");
 
   if (req.method === "OPTIONS") return res.status(204).send("");
-
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Método no permitido" });
   }
 
-  const { institucion_id, dimension_id, usuario_id, respuestas, preguntas } =
-    req.body;
+  const {
+    institucion_id,
+    dimension_id,
+    usuario_id,
+    respuestas,
+    preguntas,
+    brecha_salarial,
+    composicion_genero,
+    composicion_genero_preguntas, // 🆕 campo adicional desde frontend
+  } = req.body;
 
   if (
     !institucion_id ||
     !dimension_id ||
     !usuario_id ||
     !respuestas ||
-    !preguntas
+    !Array.isArray(preguntas) ||
+    preguntas.length === 0
   ) {
     return res.status(400).json({
-      error: {
-        message: "Faltan campos obligatorios.",
-        status: "INVALID_ARGUMENT",
-      },
+      error: { message: "Faltan campos obligatorios o preguntas vacías." },
     });
   }
 
-  // Filtrar solo las preguntas tipo radio
-  const preguntasRadio = preguntas.filter((q) => q.tipo_respuesta === "radio");
+  try {
+    const docRef = db.collection("respuestas").doc(institucion_id);
 
-  // Agrupar por subdimensión
-  const resultadosPorSubdimension = {};
-  const pendientes = [];
+    const respuestasNormales = Object.entries(respuestas).map(
+      ([id, valor]) => ({ id, valor })
+    );
 
-  for (const pregunta of preguntasRadio) {
-    const { id, subdimension, pregunta: texto } = pregunta;
-    const respuesta = respuestas[id];
+    const dataGuardar = {
+      respuestas: respuestasNormales,
+    };
 
-    if (!respuesta) continue;
+    // 🧩 Composición de género enriquecida (usando preguntas externas)
+    if (
+      dimension_id === "dimension_4" &&
+      composicion_genero &&
+      typeof composicion_genero === "object"
+    ) {
+      const todasLasPreguntas = [...preguntas];
 
-    if (!resultadosPorSubdimension[subdimension]) {
-      resultadosPorSubdimension[subdimension] = {
-        total: 0,
-        si: 0,
+      if (Array.isArray(composicion_genero_preguntas)) {
+        todasLasPreguntas.push(...composicion_genero_preguntas);
+      }
+
+      const compEnriquecida = {};
+
+      todasLasPreguntas.forEach((pregunta) => {
+        if (
+          pregunta.tipo_respuesta === "composicion_sencilla" ||
+          pregunta.tipo_respuesta === "composicion_multiple"
+        ) {
+          const respuesta = composicion_genero[pregunta.id];
+          if (!respuesta) return;
+
+          const enriquecida = {
+            pregunta: pregunta.pregunta,
+            filas: [],
+          };
+
+          if (pregunta.tipo_respuesta === "composicion_multiple") {
+            if (Array.isArray(respuesta)) {
+              respuesta.forEach((fila) => {
+                const hombres = Number(fila.hombres) || 0;
+                const mujeres = Number(fila.mujeres) || 0;
+                const diferencia = mujeres - hombres;
+
+                enriquecida.filas.push({
+                  etiqueta: fila.descripcion || "Sin descripción",
+                  valores: {
+                    hombres,
+                    mujeres,
+                  },
+                  diferencia,
+                });
+              });
+            }
+          } else if (pregunta.tipo_respuesta === "composicion_sencilla") {
+            if (pregunta.filas && Array.isArray(pregunta.filas)) {
+              pregunta.filas.forEach((fila) => {
+                const valores = respuesta[fila.id] || {};
+                const hombres = Number(valores.hombres) || 0;
+                const mujeres = Number(valores.mujeres) || 0;
+                const diferencia = mujeres - hombres;
+
+                enriquecida.filas.push({
+                  etiqueta: fila.etiqueta,
+                  valores,
+                  diferencia,
+                });
+              });
+            }
+          }
+
+          compEnriquecida[pregunta.id] = enriquecida;
+        }
+      });
+
+      console.log(
+        "📦 Composición enriquecida:",
+        JSON.stringify(compEnriquecida, null, 2)
+      );
+      dataGuardar.composicion_genero = compEnriquecida;
+    }
+
+    // 🔍 Tabla salarial para dimensión 5
+    if (dimension_id === "dimension_5" && Array.isArray(brecha_salarial)) {
+      const resumenBrecha = brecha_salarial.map((fila) => {
+        const hombres = Number(fila.hombres) || 0;
+        const mujeres = Number(fila.mujeres) || 0;
+        const brecha = mujeres - hombres;
+
+        return {
+          categoria: fila.categoria,
+          hombres,
+          mujeres,
+          brecha,
+        };
+      });
+
+      dataGuardar.brecha_salarial_resultado = resumenBrecha;
+
+      const total = resumenBrecha.length;
+      const conBrecha = resumenBrecha.filter((item) => item.brecha < 0);
+      const promedioBrecha = Math.round(
+        resumenBrecha.reduce((acc, curr) => acc + curr.brecha, 0) / total
+      );
+
+      const promedioHombres = Math.round(
+        resumenBrecha.reduce((acc, curr) => acc + curr.hombres, 0) / total
+      );
+
+      const promedioMujeres = Math.round(
+        resumenBrecha.reduce((acc, curr) => acc + curr.mujeres, 0) / total
+      );
+
+      dataGuardar.calculos = {
+        categorias_con_brecha: conBrecha.length,
+        porcentaje_con_brecha: Math.round((conBrecha.length / total) * 100),
+        promedio_brecha: promedioBrecha,
+        promedio_hombres: promedioHombres,
+        promedio_mujeres: promedioMujeres,
       };
     }
 
-    resultadosPorSubdimension[subdimension].total++;
-    if (respuesta === "Si") {
-      resultadosPorSubdimension[subdimension].si++;
-    } else {
-      pendientes.push({
-        id,
-        pregunta: texto,
-        subdimension,
-        valor: respuesta,
-      });
-    }
-  }
+    await docRef.set({ [dimension_id]: dataGuardar }, { merge: true });
 
-  // Calcular el porcentaje de cumplimiento
-  const cumplimiento = {};
-  for (const [subdimension, valores] of Object.entries(
-    resultadosPorSubdimension
-  )) {
-    const porcentaje = (valores.si / valores.total) * 100;
-    cumplimiento[subdimension] = Math.round(porcentaje);
-  }
-
-  const payload = {
-    institucion_id,
-    dimension_id,
-    usuario_id,
-    respuestas,
-    cumplimiento,
-    pendientes,
-    fecha: admin.firestore.FieldValue.serverTimestamp(),
-  };
-
-  try {
-    await db
-      .collection("respuestas")
-      .doc(institucion_id)
-      .set({ [dimension_id]: payload }, { merge: true });
-
-    return res
-      .status(200)
-      .json({ mensaje: "Respuestas guardadas y analizadas correctamente." });
-  } catch (error) {
-    console.error("Error al guardar respuestas:", error);
-    return res.status(500).json({
-      error: {
-        message: "Error interno al guardar las respuestas.",
-        status: "INTERNAL",
-      },
+    return res.status(200).json({
+      message: "Respuestas guardadas correctamente.",
     });
+  } catch (error) {
+    console.error("❌ Error al guardar dimensión:", error);
+    return res.status(500).json({ error: "Error al guardar la dimensión." });
   }
 });
 
@@ -195,12 +267,12 @@ export const obtenerPreguntasConRespuestas = https.onRequest(
     setCORSHeaders(res, "GET");
 
     if (req.method === "OPTIONS") return res.status(204).send("");
-
     if (req.method !== "GET") {
       return res.status(405).json({ error: "Método no permitido" });
     }
 
-    const { institucion_id, dimension } = req.query; // 👈 ahora solo esperamos el número
+    const { institucion_id, dimension } = req.query;
+    const dimensionDocId = `dimension_${dimension}`;
 
     if (!institucion_id || !dimension) {
       return res.status(400).json({
@@ -211,12 +283,8 @@ export const obtenerPreguntasConRespuestas = https.onRequest(
       });
     }
 
-    // Construimos los IDs reales
-    const dimensionDocId = `dimension_${dimension}`;
-    // const campoRespuestas = `dimension-${dimension}`;
-
     try {
-      // Obtener preguntas de la dimensión
+      // 🔍 Obtener preguntas de la dimensión (incluyendo composición)
       const dimensionDoc = await db
         .collection("dimensiones")
         .doc(dimensionDocId)
@@ -231,9 +299,13 @@ export const obtenerPreguntasConRespuestas = https.onRequest(
         });
       }
 
-      const preguntas = dimensionDoc.data().preguntas || [];
+      const data = dimensionDoc.data();
+      const preguntasBase = data.preguntas || [];
+      const preguntasComposicion =
+        data.composicion_genero || data.composicion_genero_preguntas || [];
+      const preguntas = [...preguntasBase, ...preguntasComposicion];
 
-      // Obtener respuestas de la institución
+      // 📥 Obtener respuestas de la institución
       const respuestasDoc = await db
         .collection("respuestas")
         .doc(institucion_id)
@@ -261,12 +333,43 @@ export const obtenerPreguntasConRespuestas = https.onRequest(
       }
 
       const respuestas = respuestasPorDimension.respuestas;
+      const composicionGenero = respuestasPorDimension.composicion_genero || {};
 
-      // Combinar preguntas con sus respuestas
-      const preguntasConRespuestas = preguntas.map((pregunta) => ({
-        ...pregunta,
-        respuesta: respuestas[pregunta.id] ?? null,
-      }));
+      let mapaRespuestas = {};
+
+      if (Array.isArray(respuestas)) {
+        mapaRespuestas = Object.fromEntries(
+          respuestas.map((r) => [r.id, r.valor])
+        );
+      } else if (typeof respuestas === "object" && respuestas !== null) {
+        mapaRespuestas = respuestas;
+      } else {
+        console.warn("⚠️ Formato inesperado en respuestas:", respuestas);
+        return res.status(500).json({
+          error: {
+            message: "Formato inesperado en el campo 'respuestas'.",
+            status: "INVALID_FORMAT",
+          },
+        });
+      }
+
+      // 🧩 Combinar preguntas y respuestas (normales y de composición)
+      const preguntasConRespuestas = preguntas.map((pregunta) => {
+        if (
+          pregunta.tipo_respuesta === "composicion_sencilla" ||
+          pregunta.tipo_respuesta === "composicion_multiple"
+        ) {
+          return {
+            ...pregunta,
+            respuesta: composicionGenero[pregunta.id] ?? null,
+          };
+        }
+
+        return {
+          ...pregunta,
+          respuesta: mapaRespuestas[pregunta.id] ?? null,
+        };
+      });
 
       return res.status(200).json({
         mensaje: "Preguntas con respuestas obtenidas correctamente.",
@@ -276,7 +379,9 @@ export const obtenerPreguntasConRespuestas = https.onRequest(
       console.error("❌ Error al obtener preguntas con respuestas:", error);
       return res.status(500).json({
         error: {
-          message: "Error interno al obtener preguntas con respuestas.",
+          message:
+            error.message ||
+            "Error interno al obtener preguntas con respuestas.",
           status: "INTERNAL",
         },
       });

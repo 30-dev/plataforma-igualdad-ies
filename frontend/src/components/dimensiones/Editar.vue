@@ -62,10 +62,21 @@ onMounted(async () => {
 
         preguntas.value = data.preguntas
         dimensionNombre.value = `Dimensión ${dimensionNum}`
-
         preguntas.value.forEach((p) => {
-            respuestas.value[p.id] = p.respuesta ?? ''
+            if (p.tipo_respuesta === 'composicion_multiple') {
+                respuestas.value[p.id] = Array.isArray(p.respuesta?.filas)
+                    ? p.respuesta.filas
+                    : []
+            } else if (p.tipo_respuesta === 'composicion_sencilla') {
+                respuestas.value[p.id] = typeof p.respuesta === 'object' && p.respuesta !== null
+                    ? p.respuesta
+                    : {}
+            } else {
+                respuestas.value[p.id] = p.respuesta ?? ''
+            }
         })
+
+
 
         loading.value = false
     } catch (error) {
