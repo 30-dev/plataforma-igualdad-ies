@@ -1,72 +1,94 @@
-<!-- /components/resultado/ComposicionGenero.vue -->
 <template>
     <section class="composicion">
-        <h3>Composición por género (dimensión 4)</h3>
+        <h3>Brecha por género</h3>
 
-        <div class="cards">
-            <div v-for="(bloque, id) in datos" :key="id" class="card">
-                <h4 class="titulo">{{ bloque.pregunta }}</h4>
-                <div class="contenido">
-                    <div v-for="fila in bloque.filas" :key="fila.etiqueta" class="fila">
-                        <p class="etiqueta">{{ fila.etiqueta }}</p>
-                        <div class="valores">
-                            <span>Mujeres {{ fila.valores.mujeres ?? 0 }}</span>
-                            <span>Hombres {{ fila.valores.hombres ?? 0 }}</span>
-                            <span>Diferencia {{ fila.diferencia ?? 0 }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <table class="tabla-genero">
+            <thead>
+                <tr>
+                    <th>Pregunta</th>
+                    <th>Grupo o categoría</th>
+                    <th>Mujeres</th>
+                    <th>Hombres</th>
+                    <th>Brecha</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template v-for="(bloque, id) in datos" :key="id">
+                    <template v-for="(fila, i) in bloque.filas" :key="fila.etiqueta">
+                        <tr :class="[
+                            i % 2 === 0 ? 'stripe' : '',
+                            fila.etiqueta?.toLowerCase() === 'total' ? 'fila-total' : ''
+                        ]">
+                            <td v-if="i === 0" :rowspan="bloque.filas.length">{{ bloque.pregunta }}</td>
+                            <td>{{ fila.etiqueta }}</td>
+                            <td>{{ fila.valores.mujeres ?? 0 }}</td>
+                            <td>{{ fila.valores.hombres ?? 0 }}</td>
+                            <td :class="{
+                                alerta: (fila.valores?.mujeres ?? 0) < (fila.valores?.hombres ?? 0)
+                            }">
+                                {{ fila.diferencia ?? 0 }}
+                                <span v-if="(fila.valores?.mujeres ?? 0) < (fila.valores?.hombres ?? 0)" class="aviso"
+                                    title="Menor participación de mujeres en esta categoría">
+                                    ↘
+                                </span>
+                            </td>
+                        </tr>
+                    </template>
+                </template>
+            </tbody>
+
+        </table>
     </section>
 </template>
 
 <script setup>
 defineProps({
-    datos: Object
-})
+    datos: Object,
+});
 </script>
 
 <style scoped>
 .composicion {
     margin-top: 32px;
-}
-
-.cards {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-}
-
-.card {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 16px;
-    background: #f9f9f9;
+    font-family: 'Poppins', sans-serif;
     width: 100%;
-    max-width: 400px;
 }
 
-.titulo {
-    font-size: 16px;
+.tabla-genero {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+
+.tabla-genero th,
+.tabla-genero td {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+}
+
+.tabla-genero th {
+    background-color: #f0f0f0;
     font-weight: bold;
-    margin-bottom: 12px;
     color: #333;
 }
 
-.contenido .fila {
-    margin-bottom: 8px;
+/* Stripe rows */
+.stripe {
+    background-color: #f9f9f9;
 }
 
-.etiqueta {
-    font-weight: 600;
-    color: #555;
+/* Estilo especial para filas de Total */
+.fila-total {
+    background-color: #e8f0fe;
+    font-weight: bold;
+    color: #1a237e;
 }
 
-.valores {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 14px;
+/* Diferencia negativa (menos mujeres que hombres) */
+.alerta {
+    background-color: #ffebee;
+    color: #c62828;
+    font-weight: bold;
 }
 </style>

@@ -1,5 +1,10 @@
 <script setup>
 import GaugeChart from "./GaugeChart.vue";
+import ComposicionGenero from "./ComposicionGenero.vue";
+import SalarioPromedio from "./SalarioPromedio.vue";
+// import TablaAtencionCasosAcoso from "./TablaAtencionCasosAcoso.vue";
+import TablaQuejasGenero from './TablaQuejasGenero.vue';
+import TablaAtencionMujeres from "./TablaAtencionMujeres.vue";
 import { computed } from "vue";
 
 const props = defineProps({
@@ -21,6 +26,26 @@ const pendientesAgrupados = computed(() => {
     }
     return grupos;
 });
+
+const esDimension5 = computed(() => props.dimension.id === "dimension_5");
+const esDimension6 = computed(() => props.dimension.id === 'dimension_6');
+
+
+const tablaQuejas = computed(() => props.dimension.tabla_quejas_genero || []);
+
+const tablaAtencion = computed(() => props.dimension.tabla_atenciones_mujeres || []);
+
+
+
+
+// const tablaQuejas = computed(() => {
+//     return props.dimension.respuestas?.find(r => r.id === 'tabla_quejas_genero')?.valor || [];
+// });
+
+// const tablaAtenciones = computed(() => {
+//     return props.dimension.respuestas?.find(r => r.id === 'tabla_atenciones_mujeres')?.valor || [];
+// });
+
 </script>
 
 <template>
@@ -37,8 +62,9 @@ const pendientesAgrupados = computed(() => {
             </div>
         </div>
 
+        <GaugeChart :atendido="dimension.porcentaje ?? 0" :titulo="'% Cumplimiento'" />
 
-        <GaugeChart :atendido="dimension.porcentaje" :titulo="'% Cumplimiento'" />
+
 
         <div v-if="Object.keys(pendientesAgrupados).length">
             <h5 class="titulo-oportunidad">Áreas de oportunidad</h5>
@@ -59,6 +85,30 @@ const pendientesAgrupados = computed(() => {
         </div>
 
         <p v-else>✅ Sin áreas de oportunidad</p>
+
+        <ComposicionGenero v-if="dimension.id === 'dimension_4'" :datos="dimension.composicion_genero" />
+        <SalarioPromedio v-if="esDimension5 && dimension.salario_promedio" :datos="dimension.salario_promedio" />
+
+        <div v-if="esDimension6">
+            <h5>Resumen de quejas</h5>
+            <TablaQuejasGenero :datos="tablaQuejas" :etiquetas="[
+                'Quejas del personal recibidas',
+                'Quejas del personal resueltas',
+                'Quejas de estudiantes recibidas',
+                'Quejas de estudiantes resueltas'
+            ]" />
+        </div>
+
+        <div v-if="esDimension6">
+            <h5>Atenciones específicas a mujeres</h5>
+            <TablaAtencionMujeres :datos="tablaAtencion" :etiquetas="[
+                'Atención en procesos de reclutamiento o selección',
+                'Atención en otros procesos laborales',
+                'Atención a mujeres estudiantes'
+            ]" />
+        </div>
+
+
     </div>
 </template>
 

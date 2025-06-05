@@ -5,9 +5,11 @@ import axios from 'axios'
 import GaugeChart from "../../components/resultado/GaugeChart.vue";
 import TablaSubdimensiones from "../../components/resultado/TablaSubdimensiones.vue";
 import TablaResumenGlobal from "../../components/resultado/TablaResumenGlobal.vue";
-import BarrasPorDimension from "../../components/resultado/BarrasPorDimension.vue";
+// import BarrasPorDimension from "../../components/resultado/BarrasPorDimension.vue";
+import BarrasPorDimensionDirecta from "../../components/resultado/BarrasPorDimensionDirecta.vue";
 import ListaDimensiones from "../../components/resultado/ListaDimensiones.vue";
 import ComposicionGenero from "../../components/resultado/ComposicionGenero.vue";
+import ResumenPorSubdimension from "../../components/resultado/ResultadoGlobal/ResumenPorSubdimension.vue";
 
 const datos = ref(null);
 const cargando = ref(true);
@@ -16,6 +18,19 @@ const institucionTieneGlobal = ref(false);
 
 const route = useRoute();
 const institucionId = route.params.codigoInstitucion;
+
+const nombresDimensiones = {
+    dimension_1: "1. Formación, docencia y desarrollo de aprendizaje",
+    dimension_2:
+        "2. Investigación, Innovación y Desarrollo y Creación Artística",
+    dimension_3: "3. Comunicación y vinculación con el medio",
+    dimension_4: "4. Participación y representación en la academia",
+    dimension_5: "5. Condiciones y relaciones de desarrollo laboral",
+    dimension_6: "6. Acoso, hostigamiento sexual y violencia de género",
+    dimension_7: "7. Corresponsabilidad social en el cuidado",
+    dimension_8: "8. Institucionalidad",
+    dimension_9: "9. Infraestructura",
+};
 
 onMounted(async () => {
     try {
@@ -27,6 +42,7 @@ onMounted(async () => {
         datos.value = json;
         cargando.value = false;
 
+        console.log("Datos del reporte:", json);
         // Detectar dimensiones
         // dimensiones.value = Object.keys(json).filter(k => k.startsWith("dimension_"));
         dimensiones.value = (json.reporte || []).map(d => d.id).filter(id => id.startsWith("dimension_"));
@@ -40,7 +56,7 @@ onMounted(async () => {
 });
 
 const puedeGenerarReporte = computed(() => {
-    return dimensiones.value.length === 9 && !institucionTieneGlobal.value;
+    return dimensiones.value.length === 9 && institucionTieneGlobal.value;
 });
 
 const generarReporte = async () => {
@@ -51,7 +67,9 @@ const generarReporte = async () => {
 
         // Refrescar datos
         datos.value.global = res.data;
+
         institucionTieneGlobal.value = true;
+
     } catch (err) {
         console.error("Error al generar reporte:", err);
         alert("Error al generar el reporte. Intenta de nuevo.");
@@ -61,25 +79,54 @@ const generarReporte = async () => {
 const dimensionesConPendientes = computed(() => {
     if (!datos.value) return [];
 
-    return datos.value.global.porcentajesPorDimension
+    return datos.value.reporte
+        .filter(d => d.id.startsWith("dimension_"))
         .map((dim) => {
-            const num = Number(dim.dimension.split(" ")[1]); // "Dimensión 3" → 3
-            const id = `dimension_${num}`;
-            const dimensionInfo = datos.value.reporte.find((r) => r.id === id);
+            const num = Number(dim.id.split("_")[1]);
+
+            const respuestaSalario = dim.respuestas?.find(r => r.id === "salario_promedio_por_categoria");
+            const quejasGenero = dim.respuestas?.find(r => r.id === "atencion_casos_quejas");
+            const atencionesMujeres = dim.respuestas?.find(r => r.id === "tabla_atenciones_mujeres")
+
+            console.log("dad", quejasGenero)
+            console.log(atencionesMujeres)
+
             return {
-                ...dim,
-                id,
+                id: dim.id,
                 numero: num,
-                pendientes: dimensionInfo?.pendientes || [],
+                porcentaje: dim.cumplimientoGeneral ?? -1,
+                pendientes: dim.pendientes || [],
+                nombre: dim.nombre || `Dimensión ${num}`,
+                descripcion: dim.descripcion || '',
+                icono: dim.icono || null,
+                composicion_genero: dim.composicion_genero || null,
+                salario_promedio: respuestaSalario?.valor || null, // 👈 agregado aquí
+                tabla_quejas_genero: quejasGenero?.valor || [], // 👈 agregado aqu
+                tabla_atenciones_mujeres: atencionesMujeres?.valor || [], // 👈 agregado aquí
+
+
             };
         })
         .sort((a, b) => a.numero - b.numero);
 });
 
+
 const composicionGenero = computed(() => {
     const dim4 = datos.value?.reporte?.find(d => d.id === 'dimension_4');
     return dim4?.composicion_genero || {};
 });
+
+
+const datosBarra = computed(() => {
+    return dimensionesConPendientes.value.map((d) => ({
+        nombre: nombresDimensiones[d.id] || d.nombre || d.id,
+        porcentaje: d.porcentaje ?? 0,
+    }));
+});
+
+
+console.log("🔍 Dimensión 4:", dimensionesConPendientes);
+
 </script>
 
 
@@ -123,13 +170,13 @@ const composicionGenero = computed(() => {
             <div v-if="datos && datos.global">
 
 
-                <TablaResumenGlobal :resumen="datos.global.resumenGlobal" />
-
-                <BarrasPorDimension :datos="datos.global.porcentajesPorDimension" />
+                <ResumenPorSubdimension v-if="datos && datos.reporte" :datos="datos" />
 
 
-                <h3>Resumen por subdimensión</h3>
-                <TablaSubdimensiones :subdimensiones="datos.global.resumenPorSubdimension" />
+                <BarrasPorDimensionDirecta :datos="datosBarra" />
+
+
+
 
                 <!-- <pre>
                 {{ datos.global.porcentajesPorDimension }}
@@ -142,10 +189,9 @@ const composicionGenero = computed(() => {
                 <h3>Porcentaje por dimensión</h3>
                 <ListaDimensiones :dimensiones="dimensionesConPendientes" />
 
-                <ComposicionGenero :datos="datos.global.composicionGenero" />
 
 
-                <ComposicionGenero :datos="composicionGenero" />
+
 
             </div>
             <!-- <div style="display: flex; flex-wrap: wrap; gap: 32px;">

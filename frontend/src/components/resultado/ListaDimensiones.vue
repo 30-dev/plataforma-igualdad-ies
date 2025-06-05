@@ -16,8 +16,7 @@ const cargando = ref(true);
 // Al montar, pedimos los metadatos de cada dimensión individualmente
 onMounted(async () => {
     const promesas = props.dimensiones.map(async (dim) => {
-        const num = dim.dimension.split(" ")[1]; // Ej: "Dimensión 3" → 3
-        const id = `dimension_${num}`;
+        const id = dim.id;
         try {
             const res = await fetch(
                 `https://obtenerpreguntasdimension-34rbmbolyq-uc.a.run.app/?id=${id}&resumen=true`
@@ -37,15 +36,16 @@ onMounted(async () => {
 // Combinar reporte global + metadatos
 const dimensionesConInfo = computed(() => {
     return props.dimensiones.map((dim) => {
-        const num = dim.dimension.split(" ")[1];
-        const id = `dimension_${num}`;
-        const meta = metadatos.value.find((m) => m.id === id);
+        const meta = metadatos.value.find((m) => m.id === dim.id);
         return {
             ...dim,
-            ...meta, // agrega nombre, descripcion, icono
+            ...meta,
+            porcentaje: dim.porcentaje ?? 0, // usa el que ya traes de props
+            composicion_genero: dim.composicion_genero || null,
         };
     });
 });
+
 </script>
 
 <template>

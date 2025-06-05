@@ -111,8 +111,6 @@ export const guardarDimension = https.onRequest(async (req, res) => {
     respuestas,
     preguntas,
     brecha_salarial,
-    composicion_genero,
-    composicion_genero_preguntas, // 🆕 campo adicional desde frontend
   } = req.body;
 
   if (
@@ -132,84 +130,72 @@ export const guardarDimension = https.onRequest(async (req, res) => {
     const docRef = db.collection("respuestas").doc(institucion_id);
 
     const respuestasNormales = Object.entries(respuestas).map(
-      ([id, valor]) => ({ id, valor })
+      ([id, valor]) => ({
+        id,
+        valor,
+      })
     );
 
     const dataGuardar = {
       respuestas: respuestasNormales,
     };
 
-    // 🧩 Composición de género enriquecida (usando preguntas externas)
-    if (
-      dimension_id === "dimension_4" &&
-      composicion_genero &&
-      typeof composicion_genero === "object"
-    ) {
-      const todasLasPreguntas = [...preguntas];
+    // 🔍 Cálculo de pendientes
+    const pendientes = [];
 
-      if (Array.isArray(composicion_genero_preguntas)) {
-        todasLasPreguntas.push(...composicion_genero_preguntas);
+    preguntas.forEach((pregunta) => {
+      const valor = respuestas[pregunta.id];
+
+      if (valor !== "Si" && pregunta.tipo_respuesta === "radio") {
+        pendientes.push({
+          id: pregunta.id,
+          pregunta: pregunta.pregunta,
+          subdimension: pregunta.subdimension || "Sin subdimensión",
+          valor,
+        });
+      }
+    });
+
+    dataGuardar.pendientes = pendientes;
+    console.log("🟡 Pendientes generados:", pendientes);
+
+    // 📊 Cálculo de cumplimiento por subdimensión
+    const subdimensiones = {};
+    preguntas.forEach((pregunta) => {
+      const sub = pregunta.subdimension || "Sin subdimensión";
+      const valor = respuestas[pregunta.id];
+
+      if (!subdimensiones[sub]) {
+        subdimensiones[sub] = {
+          total: 0,
+          si: 0,
+        };
       }
 
-      const compEnriquecida = {};
+      subdimensiones[sub].total++;
+      if (valor === "Si") {
+        subdimensiones[sub].si++;
+      }
+    });
 
-      todasLasPreguntas.forEach((pregunta) => {
-        if (
-          pregunta.tipo_respuesta === "composicion_sencilla" ||
-          pregunta.tipo_respuesta === "composicion_multiple"
-        ) {
-          const respuesta = composicion_genero[pregunta.id];
-          if (!respuesta) return;
-
-          const enriquecida = {
-            pregunta: pregunta.pregunta,
-            filas: [],
-          };
-
-          if (pregunta.tipo_respuesta === "composicion_multiple") {
-            if (Array.isArray(respuesta)) {
-              respuesta.forEach((fila) => {
-                const hombres = Number(fila.hombres) || 0;
-                const mujeres = Number(fila.mujeres) || 0;
-                const diferencia = mujeres - hombres;
-
-                enriquecida.filas.push({
-                  etiqueta: fila.descripcion || "Sin descripción",
-                  valores: {
-                    hombres,
-                    mujeres,
-                  },
-                  diferencia,
-                });
-              });
-            }
-          } else if (pregunta.tipo_respuesta === "composicion_sencilla") {
-            if (pregunta.filas && Array.isArray(pregunta.filas)) {
-              pregunta.filas.forEach((fila) => {
-                const valores = respuesta[fila.id] || {};
-                const hombres = Number(valores.hombres) || 0;
-                const mujeres = Number(valores.mujeres) || 0;
-                const diferencia = mujeres - hombres;
-
-                enriquecida.filas.push({
-                  etiqueta: fila.etiqueta,
-                  valores,
-                  diferencia,
-                });
-              });
-            }
-          }
-
-          compEnriquecida[pregunta.id] = enriquecida;
-        }
-      });
-
-      console.log(
-        "📦 Composición enriquecida:",
-        JSON.stringify(compEnriquecida, null, 2)
-      );
-      dataGuardar.composicion_genero = compEnriquecida;
+    const cumplimiento = {};
+    for (const [sub, valores] of Object.entries(subdimensiones)) {
+      const porcentaje = Math.round((valores.si / valores.total) * 100);
+      cumplimiento[sub] = porcentaje;
     }
+
+    dataGuardar.cumplimiento = cumplimiento;
+    console.log("✅ Cumplimiento por subdimensión:", cumplimiento);
+
+    // 📌 Cálculo de cumplimiento general
+    const valoresCumplimiento = Object.values(cumplimiento);
+    const promedioGeneral = Math.round(
+      valoresCumplimiento.reduce((acc, val) => acc + val, 0) /
+        valoresCumplimiento.length
+    );
+
+    dataGuardar.cumplimientoGeneral = promedioGeneral;
+    console.log("🌟 Cumplimiento general:", promedioGeneral);
 
     // 🔍 Tabla salarial para dimensión 5
     if (dimension_id === "dimension_5" && Array.isArray(brecha_salarial)) {
@@ -249,12 +235,14 @@ export const guardarDimension = https.onRequest(async (req, res) => {
         promedio_hombres: promedioHombres,
         promedio_mujeres: promedioMujeres,
       };
+
+      console.log("📈 Cálculos brecha salarial:", dataGuardar.calculos);
     }
 
     await docRef.set({ [dimension_id]: dataGuardar }, { merge: true });
 
     return res.status(200).json({
-      message: "Respuestas guardadas correctamente.",
+      message: "Respuestas, pendientes y cumplimiento guardados correctamente.",
     });
   } catch (error) {
     console.error("❌ Error al guardar dimensión:", error);

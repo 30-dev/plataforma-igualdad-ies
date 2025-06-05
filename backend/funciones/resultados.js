@@ -79,9 +79,9 @@ export const generarReporteGlobal = https.onRequest(async (req, res) => {
     const doc = await docRef.get();
 
     if (!doc.exists) {
-      return res.status(404).json({
-        error: "No se encontraron respuestas para esta institución",
-      });
+      return res
+        .status(404)
+        .json({ error: "No se encontraron respuestas para esta institución" });
     }
 
     const data = doc.data();
@@ -91,7 +91,6 @@ export const generarReporteGlobal = https.onRequest(async (req, res) => {
     const dimensionesRespondidas = Object.keys(data).filter((key) =>
       key.startsWith("dimension_")
     );
-
     if (dimensionesRespondidas.length < 9) {
       return res.status(403).json({
         error: "Faltan dimensiones por responder para generar el reporte",
@@ -104,32 +103,61 @@ export const generarReporteGlobal = https.onRequest(async (req, res) => {
 
     for (const dimensionKey of dimensionesRespondidas) {
       const dimension = data[dimensionKey];
-      const respuestas = dimension.respuestas || {};
+      let respuestas = dimension.respuestas || {};
 
-      // 🔥 Obtener preguntas desde el endpoint con subdimension
+      // 🔍 Asegura que sea un objeto plano
+      if (Array.isArray(respuestas)) {
+        respuestas = respuestas.reduce((acc, curr) => {
+          acc[curr.id] = curr.valor || curr.respuesta || "";
+          return acc;
+        }, {});
+      }
+
+      console.log(
+        `📥 Procesando ${dimensionKey} con ${
+          Object.keys(respuestas).length
+        } respuestas`
+      );
+
+      // 🔥 Obtenemos las preguntas reales desde el endpoint
       const response = await fetch(
-        `https://obtenerpreguntasdimension-34rbmbolyq-uc.a.run.app?id=${dimensionKey}`
+        `https://obtenerpreguntasconrespuestas-34rbmbolyq-uc.a.run.app/?institucion_id=${institucion_id}&dimension=${dimensionKey}`
       );
       const json = await response.json();
-      const preguntas = json.dimension?.preguntas || [];
+      const preguntas = json.preguntas || [];
 
-      const totalPreguntas = Object.keys(respuestas).length;
-      const siPorDimension = Object.values(respuestas).filter(
-        (r) => r === "Si"
+      // Calcula el número de "Sí"
+      const siPorDimension = Object.entries(respuestas).filter(
+        ([, v]) => v === "Si"
       ).length;
       totalSi += siPorDimension;
 
       porcentajesPorDimension.push({
         dimension: dimensionKey.replace("dimension_", "Dimensión "),
-        porcentaje: totalPreguntas
-          ? Math.round((siPorDimension / totalPreguntas) * 1000) / 10
+        porcentaje: preguntas.length
+          ? Math.round((siPorDimension / preguntas.length) * 1000) / 10
           : 0,
       });
 
       const subdimensiones = {};
+
       for (const pregunta of preguntas) {
         const sub = pregunta.subdimension || "Sin subdimensión";
-        const respuesta = respuestas[pregunta.id] || "No respuesta";
+
+        let respuesta = respuestas[pregunta.id];
+
+        // 🛡️ Validación por si es un objeto complejo
+        if (typeof respuesta === "object") {
+          console.warn(
+            `⚠️ Respuesta de objeto no procesada en ${pregunta.id}`,
+            respuesta
+          );
+          continue; // saltamos esta si es una tabla u objeto no compatible con este conteo
+        }
+
+        // ✨ Normalizamos texto
+        respuesta =
+          typeof respuesta === "string" ? respuesta.trim() : "No respuesta";
 
         if (!subdimensiones[sub]) {
           subdimensiones[sub] = {
@@ -147,6 +175,10 @@ export const generarReporteGlobal = https.onRequest(async (req, res) => {
           subdimensiones[sub].atendidos += 1;
         } else if (respuesta === "Parcialmente" || respuesta === "No") {
           subdimensiones[sub].por_atender += 1;
+        } else {
+          console.warn(
+            `⚠️ Respuesta inesperada: "${respuesta}" en la pregunta ${pregunta.id}`
+          );
         }
       }
 
@@ -183,8 +215,8 @@ export const generarReporteGlobal = https.onRequest(async (req, res) => {
     return res.status(200).json(reporteGlobal);
   } catch (error) {
     console.error("❌ Error al generar reporte global:", error);
-    return res.status(500).json({
-      error: "Error interno al generar el reporte",
-    });
+    return res
+      .status(500)
+      .json({ error: "Error interno al generar el reporte" });
   }
 });
